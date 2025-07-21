@@ -284,6 +284,8 @@ class NS_PromptList:
                 
                 # Save
                 self._save_yaml(select_yaml, data)
+                # Refresh enums to update key list immediately
+                self.refresh_enums()
                 
             except Exception as e:
                 print(f"Error saving prompt: {e}")
