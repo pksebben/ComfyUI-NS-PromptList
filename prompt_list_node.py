@@ -1,7 +1,7 @@
 import os
 import yaml
 import json
-import asyncio
+import threading
 import shutil
 from datetime import datetime
 from pathlib import Path
@@ -39,7 +39,7 @@ class NS_PromptList:
         self.yaml_dir = Path(__file__).parent / "yaml"
         self.yaml_dir.mkdir(exist_ok=True)
         
-        self.write_lock = asyncio.Lock()
+        self.write_lock = threading.Lock()
         self.observer = None
         self.file_handler = YAMLFileHandler(self)
         
@@ -223,18 +223,18 @@ class NS_PromptList:
             print(f"Error reading prompt: {e}")
             return {"title": title, "prompt": ""}
     
-    async def _save_yaml(self, yaml_file: str, data: Dict):
+    def _save_yaml(self, yaml_file: str, data: Dict):
         """Atomic save YAML with lock"""
-        async with self.write_lock:
+        with self.write_lock:
             yaml_path = self.yaml_dir / yaml_file
-            
+
             # Use temporary file for atomic write
-            with tempfile.NamedTemporaryFile(mode='w', dir=str(self.yaml_dir), 
+            with tempfile.NamedTemporaryFile(mode='w', dir=str(self.yaml_dir),
                                            delete=False, encoding='utf-8') as tmp:
-                yaml.dump(data, tmp, default_flow_style=False, allow_unicode=True, 
+                yaml.dump(data, tmp, default_flow_style=False, allow_unicode=True,
                          sort_keys=True)
                 tmp_path = tmp.name
-            
+
             # Atomic replace
             os.replace(tmp_path, str(yaml_path))
     
@@ -251,8 +251,8 @@ class NS_PromptList:
             
             if title in data:
                 del data[title]
-                # Run async save in sync context
-                asyncio.run(self._save_yaml(yaml_file, data))
+                # Save updated data
+                self._save_yaml(yaml_file, data)
                 self.refresh_enums()
         except Exception as e:
             print(f"Error deleting title: {e}")
@@ -283,7 +283,7 @@ class NS_PromptList:
                 data[title]["prompt"] = prompt
                 
                 # Save
-                asyncio.run(self._save_yaml(select_yaml, data))
+                self._save_yaml(select_yaml, data)
                 
             except Exception as e:
                 print(f"Error saving prompt: {e}")
